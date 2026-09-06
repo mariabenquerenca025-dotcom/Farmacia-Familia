@@ -5,21 +5,21 @@ let configOk = url && anonKey && !url.includes("COLA_AQUI") && !anonKey.includes
 if (configOk) {
   sb = supabase.createClient(url, anonKey);
 }
- 
+
 // ---------- Constants ----------
 const TABLE = "medicamentos";
- 
+
 const CATEGORIES = [
   "Dor e febre", "Dores musculares", "Alergias", "Antibióticos",
   "Cardiovascular", "Suplementos", "Digestivo", "Respiratório",
   "Pele", "Feridas e pensos", "Outro",
 ];
- 
+
 const FORMAS = [
   "Comprimidos", "Cápsulas", "Xarope", "Gotas", "Pomada / Creme",
   "Injetável", "Spray", "Supositório", "Outro",
 ];
- 
+
 const SYMPTOM_MAP = {
   "febre": ["Dor e febre"], "febril": ["Dor e febre"],
   "dor": ["Dor e febre", "Dores musculares"],
@@ -39,7 +39,7 @@ const SYMPTOM_MAP = {
   "coracao": ["Cardiovascular"], "arritmia": ["Cardiovascular"],
   "anemia": ["Suplementos"], "ferro": ["Suplementos"], "cansaco": ["Suplementos"],
 };
- 
+
 const ICONS = {
   plus: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
   search: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
@@ -53,29 +53,29 @@ const ICONS = {
   packageBig: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 6.96 12 12.01l8.7-5.05"/><path d="M12 22.08V12"/></svg>`,
   alertBig: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
 };
- 
+
 const STATUS_STYLE = {
   expired: { fg: "var(--red)", bg: "var(--red-soft)", label: "Expirado", icon: ICONS.alert },
   soon: { fg: "var(--amber)", bg: "var(--amber-soft)", label: "A expirar", icon: ICONS.calendar },
   ok: { fg: "var(--green)", bg: "var(--green-soft)", label: "Válido", icon: ICONS.check },
 };
- 
+
 // ---------- Helpers ----------
 function esc(s) {
   return (s ?? "").toString().replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
- 
+
 function normalize(s) {
   return (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
- 
+
 function monthsUntil(validade) {
   if (!validade) return null;
   const [y, m] = validade.split("-").map(Number);
   const expiryEnd = new Date(y, m, 0);
   return Math.floor((expiryEnd - new Date()) / 86400000);
 }
- 
+
 function statusFor(validade) {
   const days = monthsUntil(validade);
   if (days === null) return { key: "ok", days };
@@ -83,14 +83,14 @@ function statusFor(validade) {
   if (days <= 90) return { key: "soon", days };
   return { key: "ok", days };
 }
- 
+
 function formatValidade(v) {
   if (!v) return "—";
   const [y, m] = v.split("-");
   const meses = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
   return `${meses[parseInt(m, 10) - 1]} ${y}`;
 }
- 
+
 function symptomCategories(query) {
   const q = normalize(query);
   if (!q) return new Set();
@@ -100,11 +100,11 @@ function symptomCategories(query) {
   });
   return cats;
 }
- 
+
 function emptyForm() {
   return { id: null, nome: "", principio_ativo: "", dosagem: "", forma: FORMAS[0], quantidade: "", categoria: CATEGORIES[0], lote: "", validade: "", notas: "" };
 }
- 
+
 // ---------- State ----------
 let state = {
   meds: [],
@@ -117,18 +117,18 @@ let state = {
   form: emptyForm(),
   confirmDeleteId: null,
 };
- 
+
 // Evita que o mesmo toque que ABRE um painel também o feche de imediato
 // (comum em telemóveis, quando o DOM muda a meio do gesto de toque).
 let lastPanelOpenAt = 0;
 let lastConfirmOpenAt = 0;
 const CLOSE_GUARD_MS = 350;
- 
+
 function setState(patch) {
   state = { ...state, ...patch };
   render();
 }
- 
+
 // ---------- Data layer ----------
 async function loadMeds() {
   if (!configOk) { setState({ loading: false }); return; }
@@ -140,7 +140,7 @@ async function loadMeds() {
     setState({ loading: false, saveError: "Não consegui carregar os dados: " + e.message });
   }
 }
- 
+
 async function saveMed(record) {
   try {
     const { error } = await sb.from(TABLE).upsert(record);
@@ -152,7 +152,7 @@ async function saveMed(record) {
     return false;
   }
 }
- 
+
 async function deleteMed(id) {
   try {
     const { error } = await sb.from(TABLE).delete().eq("id", id);
@@ -162,14 +162,14 @@ async function deleteMed(id) {
     setState({ saveError: "Não foi possível eliminar: " + e.message });
   }
 }
- 
+
 function subscribeRealtime() {
   if (!configOk) return;
   sb.channel("medicamentos-changes")
     .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, () => loadMeds())
     .subscribe();
 }
- 
+
 // ---------- Derived lists ----------
 function getVisible() {
   let list = state.meds;
@@ -186,7 +186,7 @@ function getVisible() {
   }
   return [...list].sort((a, b) => (!a.validade ? 1 : !b.validade ? -1 : a.validade.localeCompare(b.validade)));
 }
- 
+
 function getSymptomMatches() {
   const trimmed = state.symptom.trim();
   if (!trimmed) return null;
@@ -199,7 +199,7 @@ function getSymptomMatches() {
   });
   return [...list].sort((a, b) => (!a.validade ? 1 : !b.validade ? -1 : a.validade.localeCompare(b.validade)));
 }
- 
+
 function getStats() {
   let expired = 0, soon = 0;
   state.meds.forEach((m) => {
@@ -208,7 +208,7 @@ function getStats() {
   });
   return { total: state.meds.length, expired, soon };
 }
- 
+
 // ---------- Rendering ----------
 function medCardHtml(m) {
   const s = statusFor(m.validade);
@@ -234,13 +234,21 @@ function medCardHtml(m) {
       ${m.notas ? `<div class="med-notes">${esc(m.notas)}</div>` : ""}
     </div>`;
 }
- 
+
 function render() {
+  // Preserve focus + cursor position across re-renders (typing in a text
+  // field triggers a full re-render for live filtering, which would
+  // otherwise recreate the input and drop focus after every keystroke).
+  const active = document.activeElement;
+  const activeId = active && active.id;
+  const selStart = active && "selectionStart" in active ? active.selectionStart : null;
+  const selEnd = active && "selectionEnd" in active ? active.selectionEnd : null;
+
   const stats = getStats();
   const visible = getVisible();
   const symptomTrimmed = state.symptom.trim();
   const symptomMatches = symptomTrimmed ? getSymptomMatches() : null;
- 
+
   const app = document.getElementById("app");
   app.innerHTML = `
     <div class="header">
@@ -254,7 +262,7 @@ function render() {
         </div>
         <button class="btn-add" data-action="new" aria-label="Adicionar medicamento">${ICONS.plus}</button>
       </div>
- 
+
       <div class="stats">
         <div class="stat-pill" style="background:var(--cream)">
           <div class="stat-value">${stats.total}</div><div class="stat-label">Total</div>
@@ -266,7 +274,7 @@ function render() {
           <div class="stat-value" style="color:var(--red)">${stats.expired}</div><div class="stat-label" style="color:var(--red)">Expirados</div>
         </div>
       </div>
- 
+
       <div class="symptom-box">
         <label class="symptom-label">O que precisas? Diz o sintoma</label>
         <div class="symptom-input-wrap">
@@ -277,19 +285,19 @@ function render() {
           ${["Febre","Dor de cabeça","Alergia","Tosse","Picada de inseto","Estômago"].map(s => `<button class="chip" data-action="set-symptom" data-value="${esc(s.toLowerCase())}">${esc(s)}</button>`).join("")}
         </div>
       </div>
- 
+
       <div class="search-wrap">
         <span class="search-icon">${ICONS.search}</span>
         <input id="query-input" placeholder="Procurar por nome ou categoria..." value="${esc(state.query)}" />
       </div>
- 
+
       <div class="filters">
         ${[["todos","Todos"],["soon","A expirar"],["expired","Expirados"]].map(([k,l]) =>
           `<button class="filter-btn ${state.filter===k?"active":""}" data-action="set-filter" data-value="${k}">${l}</button>`
         ).join("")}
       </div>
     </div>
- 
+
     <div class="body">
       ${state.saveError ? `<div class="error-banner">${esc(state.saveError)}</div>` : ""}
       ${state.loading ? `<div class="loading">A carregar a farmácia...</div>` :
@@ -314,14 +322,24 @@ function render() {
           `<div class="med-list">${visible.map(medCardHtml).join("")}</div>`
       }
     </div>
- 
+
     ${state.panelOpen ? panelHtml() : ""}
     ${state.confirmDeleteId ? confirmHtml() : ""}
   `;
- 
+
   attachListeners();
+
+  if (activeId) {
+    const toFocus = document.getElementById(activeId);
+    if (toFocus) {
+      toFocus.focus();
+      if (selStart !== null && typeof toFocus.setSelectionRange === "function") {
+        try { toFocus.setSelectionRange(selStart, selEnd); } catch (e) {}
+      }
+    }
+  }
 }
- 
+
 function panelHtml() {
   const f = state.form;
   const disabled = !f.nome.trim() || !f.validade;
@@ -357,7 +375,7 @@ function panelHtml() {
       </div>
     </div>`;
 }
- 
+
 function confirmHtml() {
   return `
     <div class="overlay center" data-overlay-kind="cancel-delete">
@@ -370,21 +388,27 @@ function confirmHtml() {
       </div>
     </div>`;
 }
- 
+
 // ---------- Event wiring ----------
 function attachListeners() {
   const app = document.getElementById("app");
- 
+
   const symptomInput = document.getElementById("symptom-input");
   if (symptomInput) symptomInput.oninput = (e) => setState({ symptom: e.target.value });
- 
+
   const queryInput = document.getElementById("query-input");
   if (queryInput) queryInput.oninput = (e) => setState({ query: e.target.value });
- 
-  // form fields (only present when panel open)
+
+  // form fields (only present when panel open) — mutate state directly
+  // instead of going through setState/render, so typing never rebuilds
+  // the DOM (keeps focus without needing the restore-focus logic above).
   const bind = (id, key, transform) => {
     const el = document.getElementById(id);
-    if (el) el.oninput = (e) => setState({ form: { ...state.form, [key]: transform ? transform(e.target.value) : e.target.value } });
+    if (el) el.oninput = (e) => {
+      state.form[key] = transform ? transform(e.target.value) : e.target.value;
+      const btn = document.querySelector('[data-action="submit-form"]');
+      if (btn) btn.disabled = !state.form.nome.trim() || !state.form.validade;
+    };
   };
   bind("f-nome", "nome");
   bind("f-principio", "principio_ativo");
@@ -395,7 +419,7 @@ function attachListeners() {
   bind("f-categoria", "categoria");
   bind("f-lote", "lote");
   bind("f-notas", "notas");
- 
+
   app.onclick = async (e) => {
     const stopEl = e.target.closest("[data-stop]");
     const overlay = e.target.closest(".overlay");
@@ -411,11 +435,11 @@ function attachListeners() {
       }
       return;
     }
- 
+
     const target = e.target.closest("[data-action]");
     if (!target) return;
     const action = target.dataset.action;
- 
+
     if (action === "new") { lastPanelOpenAt = Date.now(); setState({ form: emptyForm(), panelOpen: true }); return; }
     if (action === "edit") {
       const m = state.meds.find((x) => String(x.id) === target.dataset.id);
@@ -457,13 +481,12 @@ function attachListeners() {
     }
   };
 }
- 
+
 // ---------- Boot ----------
 render();
 loadMeds();
 subscribeRealtime();
- 
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 }
- 
