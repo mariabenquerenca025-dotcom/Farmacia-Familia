@@ -118,6 +118,12 @@ let state = {
   confirmDeleteId: null,
 };
 
+// Evita que o mesmo toque que ABRE um painel também o feche de imediato
+// (comum em telemóveis, quando o DOM muda a meio do gesto de toque).
+let lastPanelOpenAt = 0;
+let lastConfirmOpenAt = 0;
+const CLOSE_GUARD_MS = 350;
+
 function setState(patch) {
   state = { ...state, ...patch };
   render();
@@ -396,8 +402,13 @@ function attachListeners() {
     if (overlay && !stopEl?.contains(e.target) && e.target === overlay) {
       // clicked outside the sheet/card
       const action = overlay.dataset.action;
-      if (action === "close-panel") setState({ panelOpen: false });
-      if (action === "cancel-delete") setState({ confirmDeleteId: null });
+      const now = Date.now();
+      if (action === "close-panel" && now - lastPanelOpenAt > CLOSE_GUARD_MS) {
+        setState({ panelOpen: false });
+      }
+      if (action === "cancel-delete" && now - lastConfirmOpenAt > CLOSE_GUARD_MS) {
+        setState({ confirmDeleteId: null });
+      }
       return;
     }
 
@@ -405,17 +416,17 @@ function attachListeners() {
     if (!target) return;
     const action = target.dataset.action;
 
-    if (action === "new") { setState({ form: emptyForm(), panelOpen: true }); return; }
+    if (action === "new") { lastPanelOpenAt = Date.now(); setState({ form: emptyForm(), panelOpen: true }); return; }
     if (action === "edit") {
       const m = state.meds.find((x) => String(x.id) === target.dataset.id);
-      if (m) setState({ form: { ...emptyForm(), ...m, quantidade: m.quantidade ?? "" }, panelOpen: true });
+      if (m) { lastPanelOpenAt = Date.now(); setState({ form: { ...emptyForm(), ...m, quantidade: m.quantidade ?? "" }, panelOpen: true }); }
       return;
     }
     if (action === "close-panel") { setState({ panelOpen: false }); return; }
     if (action === "clear-symptom") { setState({ symptom: "" }); return; }
     if (action === "set-symptom") { setState({ symptom: target.dataset.value }); return; }
     if (action === "set-filter") { setState({ filter: target.dataset.value }); return; }
-    if (action === "ask-delete") { setState({ confirmDeleteId: target.dataset.id }); return; }
+    if (action === "ask-delete") { lastConfirmOpenAt = Date.now(); setState({ confirmDeleteId: target.dataset.id }); return; }
     if (action === "cancel-delete") { setState({ confirmDeleteId: null }); return; }
     if (action === "confirm-delete") {
       const id = state.confirmDeleteId;
