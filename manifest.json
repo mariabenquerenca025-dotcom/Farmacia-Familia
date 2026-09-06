@@ -1,0 +1,14 @@
+{
+  "name": "Farmácia da Família",
+  "short_name": "Farmácia",
+  "description": "Gestão dos medicamentos da família",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6F4EE",
+  "theme_color": "#3F6F5A",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
